@@ -14,15 +14,13 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-
+import android.widget.Toast;
 import com.codemybrainsout.ratingdialog.RatingDialog;
-
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
     private SharedPreferences ratingPref;
     private String androidID;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,11 +30,16 @@ public class MainActivity extends AppCompatActivity {
         WebSettings webSettings = myWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
-        myWebView.setWebViewClient(new WebViewClient());
+        myWebView.setWebViewClient(new WebViewClient(){
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                view.loadUrl("file:///android_asset/error.html");
+            }
+        });
         myWebView.setWebChromeClient(new WebChromeClient());
         androidID = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
         Log.i("InstanceID", androidID);
-        myWebView.loadUrl("http://free-ig-video-views.com/app/?appid="+androidID);
+        myWebView.loadUrl("http://free-ig-video-views.com/appv2/?appid=" + androidID);
         ratingPref = getPreferences(Context.MODE_PRIVATE);
         float defaultValue = 0;
         final float rating = ratingPref.getFloat(getString(R.string.saved_rating), defaultValue);
@@ -51,13 +54,18 @@ public class MainActivity extends AppCompatActivity {
                             editor.putFloat(getString(R.string.saved_rating), rating);
                             editor.apply();
                             if (rating > 4) {
-                                AsyncTask<String, Void, String> sendRatingTask = new HttpPostRequest()
-                                        .execute("http://free-ig-videoviews.com/app/api/",
-                                                androidID, String.valueOf(rating), HttpPostRequest.RATE_ACTION);
-                                try {
-                                    Log.i("sendRatingTask result", sendRatingTask.get());
-                                } catch (InterruptedException | ExecutionException e) {
-                                    e.printStackTrace();
+                                if (!DetectConnection.checkInternetConnection(MainActivity.this)) {
+                                    Toast.makeText(getApplicationContext(), "No Connection :(", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    AsyncTask<String, Void, String> sendRatingTask = new HttpPostRequest()
+                                            .execute("http://free-ig-videoviews.com/appv2/api/",
+                                                    androidID, String.valueOf(rating), HttpPostRequest.RATE_ACTION);
+
+                                    try {
+                                        Log.i("sendRatingTask result", sendRatingTask.get());
+                                    } catch (InterruptedException | ExecutionException e) {
+                                        e.printStackTrace();
+                                    }
                                 }
                             }
                         }
@@ -65,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
             ratingDialog.show();
         }
+
     }
 
     @Override
@@ -106,13 +115,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         Log.i("onActivityResult", "Result code: " + String.valueOf(resultCode));
         if (resultCode == RESULT_OK) {
-            AsyncTask<String, Void, String> sendShareTask = new HttpPostRequest()
-                    .execute("http://free-ig-videoviews.com/app/api/",
-                            androidID, "0", HttpPostRequest.SHARE_ACTION);
-            try {
-                Log.i("sendShareTask result", sendShareTask.get());
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+            if (!DetectConnection.checkInternetConnection(MainActivity.this)) {
+                Toast.makeText(getApplicationContext(), "No Connection :(", Toast.LENGTH_SHORT).show();
+            } else {
+                AsyncTask<String, Void, String> sendShareTask = new HttpPostRequest()
+                        .execute("http://free-ig-videoviews.com/appv2/api/",
+                                androidID, "0", HttpPostRequest.SHARE_ACTION);
+                try {
+                    Log.i("sendShareTask result", sendShareTask.get());
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
